@@ -1,0 +1,114 @@
+---
+title: "Inno"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(svglite)
+library(extrafont)
+library(rmapshaper)
+library(gridExtra)
+loadfonts(device = "win")
+```
+
+```{r}
+rohdaten <- read.csv2("Rohdaten_Beispiel.csv")
+
+# Summarized auf Gemeindeebene Clusterunabhängig
+data_gem <- rohdaten %>%
+  as_factor(AGS) %>%
+  group_by(Gemeinde) %>%
+  summarise(n = n())
+
+# Summarized auf Gemeindeebene spzeifisch für Cluster
+data_cluster <- rohdaten %>%
+  group_by(Gemeinde, Cluster) %>%
+  summarise(n = n()) %>%
+  split(.$Cluster)
+```
+
+
+```{r}
+geo_lk <- readRDS("gadm36_DEU_2_sf.rds") %>%
+  filter(NAME_1 == "Brandenburg") %>%
+  st_set_crs(4326)
+  # ms_simplify(., keep_shapes = T, keep = 0.02)
+geo_gem<- readRDS("gadm36_DEU_4_sf.rds") %>%
+  filter(NAME_1 == "Brandenburg") %>%
+  st_set_crs(4326) %>%
+  ms_simplify(., keep_shapes = T, keep = 0.02)
+```
+
+
+```{r}
+data_gem_join <- data_gem %>%
+  right_join(geo_gem, by = c("Gemeinde" = "NAME_4")) %>%
+  mutate(n_binned = case_when(n <= 2 ~ "1-2 Projekte",
+                              n > 2 & n <= 10  ~ "3-10 Projekte",
+                              n > 10 ~ "Mehr als 10 Projekte",
+                              TRUE ~ "Keine Projekte"))
+
+gesamt <- ggplot() +
+  geom_sf(data = data_gem_join, aes(fill = n_binned), color = "#BCBDC0", size = 0.1) +
+  geom_sf(data = geo_lk, color = "#BCBDC0", size = 0.4, fill = NA) +
+  scale_fill_manual(limits = c("1-2 Projekte", "3-10 Projekte", "Mehr als 10 Projekte", 
+                               "Keine Projekte"),
+                    values = c("#7E9FD3", "#0066B3", "#004B89", "white"), 
+                    name = "") +
+  theme_void() + coord_sf(datum = NA) + ggtitle("Clusterübergreifende Maßnahmen") +
+  theme(legend.title.align = 0, legend.position = "left",
+        text=element_text(size=7.5,  family="Verdana", colour = "#707070"))
+
+  
+```
+
+
+```{r}
+#grey = #BCBDC0
+
+colors <- list(c("#9BCF7E", "#70BF4C", "#4F9038", "#BCBDC0"),
+               c("#C76B46", "#B23715", "#8C2904", "#BCBDC0"),
+               c("#83ADB6", "#007B84", "#005D64", "#BCBDC0"),
+               c("#FED696", "#FCB130", "#BA8521", "#BCBDC0"),
+               c("#7B9AA9", "#1A4859", "#0A3140", "#BCBDC0"),
+               c("#D1D2D4", "#A7A9AC", "#939598", "#BCBDC0"),
+               c("#7DD3F0", "#30C3EA", "#2395B2", "#BCBDC0"),
+               c("#8EC081", "#5CAC53", "#3F823D", "#BCBDC0"),
+               c("#9B8DC3", "#573F99", "#412973", "#BCBDC0"))
+
+
+data_cluster_join <- data_cluster %>%
+  map(~right_join(., geo_gem, by = c("Gemeinde" = "NAME_4"))) %>%
+  map(~mutate(., clusterFill = sort(unique(.$Cluster))[1])) %>%
+  map(~mutate(., n_binned = case_when(n <= 2 ~ "1-2 Projekte",
+                              n > 2 & n <= 10  ~ "3-10 Projekte",
+                              n > 10 ~ "Mehr als 10 Projekte",
+                              TRUE ~ "Keine Projekte")))
+
+cluster_plots <- pmap(list(data_cluster_join, colors, names(data_cluster_join)), ~ggplot() +
+      geom_sf(data = .x, aes(fill = n_binned), color = "white", size = 0.05) +
+      geom_sf(data = geo_lk, color = "white", size = 0.2, fill = NA) +
+      scale_fill_manual(limits = c("1-2 Projekte", "3-10 Projekte", 
+                                                      "Mehr als 10 Projekte", "Keine Projekte"),
+                                           values = .y,
+                                           name = "") +
+  theme_void() + coord_sf(datum = NA) + ggtitle(..3) +
+  theme(legend.title.align = 0, legend.position = "none",
+        text=element_text(size=5,  family="Verdana", colour = "#707070")))
+```
+
+
+```{r}
+cluster_plots[["Gesamt"]] <- gesamt
+
+final <- grid.arrange(grobs = cluster_plots,
+  layout_matrix = rbind(c(10, 10, 10, 1, 2, 3),
+                        c(10, 10, 10, 4, 5, 6),
+                        c(10, 10, 10, 7, 8, 9)))
+ggsave("Images/final.svg", final, device = "svg")
+```
+

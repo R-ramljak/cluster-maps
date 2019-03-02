@@ -16,7 +16,7 @@ loadfonts(device = "win")
 ```
 
 ```{r}
-rohdaten <- read.csv2("Rohdaten_Beispiel.csv")
+rohdaten <- read.csv2("data/Rohdaten_Beispiel.csv")
 
 # Summarized auf Gemeindeebene Clusterunabhängig
 data_gem <- rohdaten %>%
@@ -33,11 +33,11 @@ data_cluster <- rohdaten %>%
 
 
 ```{r}
-geo_lk <- readRDS("gadm36_DEU_2_sf.rds") %>%
+geo_lk <- readRDS("data/gadm36_DEU_2_sf.rds") %>%
   filter(NAME_1 == "Brandenburg") %>%
   st_set_crs(4326)
   # ms_simplify(., keep_shapes = T, keep = 0.02)
-geo_gem<- readRDS("gadm36_DEU_4_sf.rds") %>%
+geo_gem<- readRDS("data/gadm36_DEU_4_sf.rds") %>%
   filter(NAME_1 == "Brandenburg") %>%
   st_set_crs(4326) %>%
   ms_simplify(., keep_shapes = T, keep = 0.02)
@@ -54,7 +54,7 @@ data_gem_join <- data_gem %>%
 
 gesamt <- ggplot() +
   geom_sf(data = data_gem_join, aes(fill = n_binned), color = "#BCBDC0", size = 0.1) +
-  geom_sf(data = geo_lk, color = "#BCBDC0", size = 0.4, fill = NA) +
+  geom_sf(data = geo_lk, color = "#BCBDC0", size = 1, fill = NA) +
   scale_fill_manual(limits = c("1-2 Projekte", "3-10 Projekte", "Mehr als 10 Projekte", 
                                "Keine Projekte"),
                     values = c("#7E9FD3", "#0066B3", "#004B89", "white"), 
@@ -62,7 +62,7 @@ gesamt <- ggplot() +
   theme_void() + coord_sf(datum = NA) + ggtitle("Clusterübergreifende Maßnahmen") +
   theme(legend.title.align = 0, legend.position = "left",
         text=element_text(size=7.5,  family="Verdana", colour = "#707070"))
-
+print(gesamt)
   
 ```
 
@@ -91,7 +91,7 @@ data_cluster_join <- data_cluster %>%
 
 cluster_plots <- pmap(list(data_cluster_join, colors, names(data_cluster_join)), ~ggplot() +
       geom_sf(data = .x, aes(fill = n_binned), color = "white", size = 0.05) +
-      geom_sf(data = geo_lk, color = "white", size = 0.2, fill = NA) +
+      geom_sf(data = geo_lk, color = "white", size = 1, fill = NA) +
       scale_fill_manual(limits = c("1-2 Projekte", "3-10 Projekte", 
                                                       "Mehr als 10 Projekte", "Keine Projekte"),
                                            values = .y,
@@ -99,6 +99,7 @@ cluster_plots <- pmap(list(data_cluster_join, colors, names(data_cluster_join)),
   theme_void() + coord_sf(datum = NA) + ggtitle(..3) +
   theme(legend.title.align = 0, legend.position = "none",
         text=element_text(size=5,  family="Verdana", colour = "#707070")))
+print(cluster_plots[1])
 ```
 
 
@@ -109,6 +110,6 @@ final <- grid.arrange(grobs = cluster_plots,
   layout_matrix = rbind(c(10, 10, 10, 1, 2, 3),
                         c(10, 10, 10, 4, 5, 6),
                         c(10, 10, 10, 7, 8, 9)))
-ggsave("Images/final.svg", final, device = "svg")
+# ggsave("Images/final.svg", final, device = "svg")
 ```
 
